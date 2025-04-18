@@ -1,0 +1,5 @@
+matplotlib
+PyQt6
+numpy
+tqdm
+scikit-image
