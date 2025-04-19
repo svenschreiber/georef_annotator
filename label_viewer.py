@@ -25,13 +25,17 @@ class PointDialog(QDialog):
         self.combo.addItems(labels)
         self.combo.setCurrentText(point.label)
         layout.addRow(QLabel("Label:"), self.combo)
+        delete_btn = QPushButton("Delete")
+        delete_btn.clicked.connect(self.set_delete)
+        self.should_delete = False
         button = QPushButton("Done")
         button.clicked.connect(self.accept)
-        layout.addRow(button)
+        button.setDefault(True)
+        layout.addRow(delete_btn, button)
 
-    def get_selected_label(self):
-        return self.combo.currentText()
-
+    def set_delete(self):
+        self.should_delete = True
+        self.accept()
 
 def load_labels(file):
     with open(file, "r") as f: return [line.strip() for line in f]
@@ -113,22 +117,27 @@ class LabelViewer:
     def get_current_filename(self):
         return os.path.basename(self.images._files[self.current])
 
+    def get_current_anns(self):
+        return self.anns[self.get_current_filename()]
+
     def get_point_list(self):
-        coords = [p.coords for p in self.anns[self.get_current_filename()]]
-        labels = [p.label for p in self.anns[self.get_current_filename()]]
+        coords = [p.coords for p in self.get_current_anns()]
+        labels = [p.label for p in self.get_current_anns()]
         return coords, labels
 
     def get_point_by_coords(self, coords):
-        points = [p for p in self.anns[self.get_current_filename()] if p.has_coords(*coords)]
+        points = [p for p in self.get_current_anns() if p.has_coords(*coords)]
         return points[0] if len(points) > 0 else None
 
     def pick_callback(self, event):
         coords = self.sc.get_offsets()[event.ind[0]]
         p = self.get_point_by_coords(coords)
-        print(coords, p.__dict__)
+        print(p.__dict__)
         dialog = PointDialog(self.label_names, p, event.canvas.manager.window)
         dialog.exec()
-        p.label = dialog.get_selected_label()
+        p.label = dialog.combo.currentText()
+        if dialog.should_delete: self.get_current_anns().remove(p)
+        self.redraw()
 
 parser = ArgumentParser()
 parser.add_argument("image_dir")
