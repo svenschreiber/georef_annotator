@@ -70,7 +70,6 @@ LABEL_SELECT = 1
 
 class State:
     roi_coords = ()
-    selector_was_used = False
     label_text = None
     point = None
     menu = ROI_SELECT
@@ -78,12 +77,11 @@ class State:
     def select_callback(self, eclick, erelease):
         x1, y1 = eclick.xdata, eclick.ydata
         x2, y2 = erelease.xdata, erelease.ydata
-        self.selector_was_used = True
 
     def key_press_callback(self, event):
         if event.key == "enter":
             if self.menu == ROI_SELECT:
-                if self.selector_was_used: 
+                if selector._selection_artist.get_visible(): 
                     self.roi_coords = np.array(selector.extents, dtype=np.int32)
                     self.label_text = combo.currentText()
                     self.menu = LABEL_SELECT
@@ -109,7 +107,7 @@ parser.add_argument("image_dir")
 parser.add_argument("label_names_file")
 args = parser.parse_args()
 image_dir = args.image_dir
-file_list = [os.path.join(image_dir, file) for file in os.listdir(image_dir) if file.endswith('.jpg')]
+file_list = [os.path.join(image_dir, file) for file in os.listdir(image_dir) if file.endswith('.jpg')][:20]
 images = load_images(file_list)
 label_names = load_labels(args.label_names_file)
 
@@ -147,9 +145,10 @@ selector = RectangleSelector(ax, state.select_callback,
 fig.canvas.mpl_connect('key_press_event', state.key_press_callback)
 
 plt.show()
-if not state.selector_was_used: exit()
+if not selector._selection_artist.get_visible(): exit()
 
 # split up into similar groups
+print(f"Selected ROI region {state.roi_coords} with label '{state.label_text}'")
 groups = eval_groups(file_list, images, state.roi_coords)
 
 for i, group in enumerate(groups):

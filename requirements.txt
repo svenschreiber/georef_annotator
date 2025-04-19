@@ -3,3 +3,4 @@ PyQt6
 numpy
 tqdm
 scikit-image
+pandas
