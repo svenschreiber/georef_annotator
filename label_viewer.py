@@ -1,12 +1,14 @@
-import matplotlib.pyplot as plt
-from argparse import ArgumentParser
-from skimage.io import imread_collection
 import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
 matplotlib.use("qtagg")
-from PyQt6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QPushButton, QFileDialog, QWidget, QButtonGroup, QToolButton, QLineEdit
+
+from PyQt6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QPushButton, QFileDialog, QWidget, QToolButton, QLineEdit
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import Qt 
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
+
+from argparse import ArgumentParser
+from skimage.io import imread_collection
 import os
 import pandas as pd
 

@@ -1,19 +1,21 @@
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.widgets import RectangleSelector
-import matplotlib
-from PyQt6.QtWidgets import QComboBox, QVBoxLayout, QWidget, QFormLayout, QLabel, QPushButton
 matplotlib.use("qtagg")
+
+from PyQt6.QtWidgets import QComboBox, QVBoxLayout, QWidget, QFormLayout, QLabel, QPushButton
+
+from skimage import io, color
+from skimage.metrics import structural_similarity as ssim
 
 import numpy as np
 from argparse import ArgumentParser
 import os
 from tqdm import tqdm
-from skimage import io, color
-from skimage.metrics import structural_similarity as ssim
 import time
 import traceback
 
-# Crosshair cursor from: https://matplotlib.org/stable/gallery/event_handling/cursor_demo.html
+# Crosshair cursor from this tutorial: https://matplotlib.org/stable/gallery/event_handling/cursor_demo.html
 class BlittedCursor:
     """
     A cross-hair cursor using blitting for faster redraw.
