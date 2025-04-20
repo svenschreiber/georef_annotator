@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use("qtagg")
 from PyQt6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QPushButton, QFileDialog, QWidget, QButtonGroup, QToolButton, QLineEdit
 from PyQt6.QtGui import QIntValidator
+from PyQt6.QtCore import Qt 
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
 import os
 import pandas as pd
@@ -113,7 +114,12 @@ class CustomToolbar(NavigationToolbar2QT):
         self.anns = anns
         self.img_size = img_size
 
-        self.add_radio_buttons()
+        self.addWidget(QLabel("Selected label"))
+        self.combo = QComboBox()
+        self.combo.addItems(labels)
+        self.addWidget(self.combo)
+
+        self.addSeparator()
 
         btn = QPushButton()
         btn.setText("Bulk Label Changer")
@@ -133,40 +139,6 @@ class CustomToolbar(NavigationToolbar2QT):
                     for p in points:
                         f.write(f"{p.label},{p.coords[0]},{p.coords[1]},{img_file},{self.img_size[0]},{self.img_size[1]}\n")
 
-    def add_radio_buttons(self):
-        self.button_group = QButtonGroup(self)
-        self.button_group.setExclusive(True)
-
-        self.mode_buttons = {}
-
-        modes = [
-            ("Add", self.add_mode),
-            ("Move", self.move_mode),
-            ("Edit", self.edit_mode),
-        ]
-
-        for label, callback in modes:
-            btn = QToolButton(self)
-            btn.setCheckable(True)
-            btn.setToolTip(label)
-            btn.setText(label)
-            btn.clicked.connect(callback)
-            self.button_group.addButton(btn)
-            self.addWidget(btn)
-
-            self.mode_buttons[label] = btn 
-
-        self.mode_buttons["Edit"].setChecked(True)
-
-    def add_mode(self):
-        print("add")
-
-    def move_mode(self):
-        print("move")
-
-    def edit_mode(self):
-        print("edit")
-
 class LabelViewer:
     def __init__(self, args):
         image_dir = args.image_dir
@@ -177,8 +149,12 @@ class LabelViewer:
         self.num_images = len(self.images)
         self.fig, self.ax = plt.subplots()
         self.current = 0
+        self.selected_point = None
         self.fig.canvas.mpl_connect('key_press_event', self.key_press_callback)
         self.fig.canvas.mpl_connect('pick_event', self.pick_callback)
+        self.fig.canvas.mpl_connect('button_press_event', self.button_press_callback)
+        self.fig.canvas.mpl_connect('button_release_event', self.button_release_callback)
+        self.fig.canvas.mpl_connect('motion_notify_event', self.motion_notify_callback)
         self.sc = None
         self.redraw()
         window = plt.get_current_fig_manager().window
@@ -194,8 +170,8 @@ class LabelViewer:
 
         central = QWidget()
         layout = QVBoxLayout()
-        custom_toolbar = CustomToolbar(canvas, window, self.label_names, args.annotations, self.anns, (img_width, img_height), self.num_images, self.redraw)
-        layout.addWidget(custom_toolbar)
+        self.toolbar = CustomToolbar(canvas, window, self.label_names, args.annotations, self.anns, (img_width, img_height), self.num_images, self.redraw)
+        layout.addWidget(self.toolbar)
         layout.addWidget(canvas)
         central.setLayout(layout)
         window.setCentralWidget(central)
@@ -238,15 +214,32 @@ class LabelViewer:
         points = [p for p in self.get_current_anns() if p.has_coords(*coords)]
         return points[0] if len(points) > 0 else None
 
+    def button_release_callback(self, event):
+        self.selected_point = None
+
     def pick_callback(self, event):
         coords = self.sc.get_offsets()[event.ind[0]]
         p = self.get_point_by_coords(coords)
-        print(p.__dict__)
-        dialog = PointDialog(self.label_names, p, event.canvas.manager.window)
-        dialog.exec()
-        p.label = dialog.combo.currentText()
-        if dialog.should_delete: self.get_current_anns().remove(p)
+        if event.mouseevent.button == 1:
+            self.selected_point = p
+        if event.mouseevent.button == 3:
+            dialog = PointDialog(self.label_names, p, event.canvas.manager.window)
+            dialog.exec()
+            p.label = dialog.combo.currentText()
+            if dialog.should_delete: self.get_current_anns().remove(p)
+            self.redraw()
+
+    def motion_notify_callback(self, event):
+        if self.selected_point is None or event.inaxes != self.ax: return
+        self.selected_point.coords = (int(event.xdata), int(event.ydata))
         self.redraw()
+
+    def button_press_callback(self, event):
+        if event.button == 1 and self.selected_point is None:
+            x, y = int(event.xdata), int(event.ydata)
+            label = self.toolbar.combo.currentText()
+            self.get_current_anns().append(Point(x, y, label))
+            self.redraw()
 
 parser = ArgumentParser()
 parser.add_argument("image_dir")
