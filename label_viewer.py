@@ -3,7 +3,8 @@ from argparse import ArgumentParser
 from skimage.io import imread_collection
 import matplotlib
 matplotlib.use("qtagg")
-from PyQt6.QtWidgets import QDialog, QFormLayout, QLabel, QComboBox, QPushButton, QFileDialog
+from PyQt6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QVBoxLayout, QLabel, QComboBox, QPushButton, QFileDialog, QWidget, QButtonGroup, QToolButton, QLineEdit
+from PyQt6.QtGui import QIntValidator
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
 import os
 import pandas as pd
@@ -18,7 +19,7 @@ class Point:
 class PointDialog(QDialog):
     def __init__(self, labels, point, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Test")
+        self.setWindowTitle("Change Label")
         self.setModal(True)
         layout = QFormLayout(self)
         self.combo = QComboBox()
@@ -37,6 +38,62 @@ class PointDialog(QDialog):
         self.should_delete = True
         self.accept()
 
+class BulkLabelChangerDialog(QDialog):
+    def __init__(self, labels, anns, num_images, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Bulk Label Changer")
+        self.setModal(True)
+        self.labels_changed = False
+        self.anns = anns
+        layout = QVBoxLayout(self)
+        row1 = QWidget()
+        self.combo1 = QComboBox()
+        self.combo1.addItems(labels)
+        self.combo2 = QComboBox()
+        self.combo2.addItems(labels)
+        row1_layout = QHBoxLayout()
+        row1_layout.addWidget(QLabel("Change label"))
+        row1_layout.addWidget(self.combo1)
+        row1_layout.addWidget(QLabel("to"))
+        row1_layout.addWidget(self.combo2)
+        row1.setLayout(row1_layout)
+        layout.addWidget(row1)
+        row2 = QWidget()
+        self.lineedit1 = QLineEdit()
+        self.lineedit1.setValidator(QIntValidator(1, num_images))
+        self.lineedit2 = QLineEdit()
+        self.lineedit2.setValidator(QIntValidator(1, num_images))
+        row2_layout = QHBoxLayout()
+        row2_layout.addWidget(QLabel("From frame"))
+        row2_layout.addWidget(self.lineedit1)
+        row2_layout.addWidget(QLabel("to"))
+        row2_layout.addWidget(self.lineedit2)
+        row2.setLayout(row2_layout)
+        layout.addWidget(row2)
+        row3 = QWidget()
+        row3_layout = QHBoxLayout()
+        change_btn = QPushButton()
+        change_btn.clicked.connect(self.change_labels)
+        change_btn.setText("Change")
+        cancel_btn = QPushButton()
+        cancel_btn.clicked.connect(self.accept)
+        cancel_btn.setText("Cancel")
+        row3_layout.addWidget(cancel_btn)
+        row3_layout.addWidget(change_btn)
+        row3.setLayout(row3_layout)
+        layout.addWidget(row3)
+
+    def change_labels(self):
+        if self.lineedit1.hasAcceptableInput() and self.lineedit2.hasAcceptableInput():
+            frame1, frame2 = int(self.lineedit1.text()), int(self.lineedit2.text())
+            if frame1 > frame2: frame1, frame2 = frame2, frame1
+            data = [points for i, (_, points) in enumerate(self.anns.items()) if i + 1 >= frame1 and i + 1 <= frame2]
+            data = [p for ps in data for p in ps if p.label == self.combo1.currentText()]
+            for p in data:
+                p.label = self.combo2.currentText()
+            self.labels_changed = True
+            self.accept()
+
 def load_labels(file):
     with open(file, "r") as f: return [line.strip() for line in f]
 
@@ -50,20 +107,65 @@ def load_annotations(file):
     return grouped.to_dict()
 
 class CustomToolbar(NavigationToolbar2QT):
-    def __init__(self, canvas, parent, anns_file, anns, img_size):
+    def __init__(self, canvas, parent, labels, anns_file, anns, img_size, num_images, redraw):
         super().__init__(canvas, parent)
         self.anns_file = anns_file
         self.anns = anns
         self.img_size = img_size
 
+        self.add_radio_buttons()
+
+        btn = QPushButton()
+        btn.setText("Bulk Label Changer")
+        def open_bulk_label_changer():
+            dialog = BulkLabelChangerDialog(labels, anns, num_images, self)
+            dialog.exec()
+            if dialog.labels_changed: redraw()
+
+        btn.clicked.connect(open_bulk_label_changer)
+        self.addWidget(btn)
+
     def save_figure(self, *args, **kwargs):
-        # Custom behavior: show a message box and skip default save dialog
         file_path, _ = QFileDialog.getSaveFileName(None, "Save Labels", self.anns_file,"CSV (*.csv);;All Files (*)")
         if file_path:
             with open(file_path, "w") as f:
                 for img_file, points in self.anns.items():
                     for p in points:
                         f.write(f"{p.label},{p.coords[0]},{p.coords[1]},{img_file},{self.img_size[0]},{self.img_size[1]}\n")
+
+    def add_radio_buttons(self):
+        self.button_group = QButtonGroup(self)
+        self.button_group.setExclusive(True)
+
+        self.mode_buttons = {}
+
+        modes = [
+            ("Add", self.add_mode),
+            ("Move", self.move_mode),
+            ("Edit", self.edit_mode),
+        ]
+
+        for label, callback in modes:
+            btn = QToolButton(self)
+            btn.setCheckable(True)
+            btn.setToolTip(label)
+            btn.setText(label)
+            btn.clicked.connect(callback)
+            self.button_group.addButton(btn)
+            self.addWidget(btn)
+
+            self.mode_buttons[label] = btn 
+
+        self.mode_buttons["Edit"].setChecked(True)
+
+    def add_mode(self):
+        print("add")
+
+    def move_mode(self):
+        print("move")
+
+    def edit_mode(self):
+        print("edit")
 
 class LabelViewer:
     def __init__(self, args):
@@ -88,9 +190,16 @@ class LabelViewer:
             if isinstance(widget, NavigationToolbar2QT):
                 layout.removeWidget(widget)
                 widget.setParent(None)
+                break
 
-        custom_toolbar = CustomToolbar(canvas, window, args.annotations, self.anns, (img_width, img_height))
+        central = QWidget()
+        layout = QVBoxLayout()
+        custom_toolbar = CustomToolbar(canvas, window, self.label_names, args.annotations, self.anns, (img_width, img_height), self.num_images, self.redraw)
         layout.addWidget(custom_toolbar)
+        layout.addWidget(canvas)
+        central.setLayout(layout)
+        window.setCentralWidget(central)
+
         plt.show()
 
     def redraw(self):
