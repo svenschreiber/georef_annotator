@@ -116,6 +116,8 @@ class CustomToolbar(NavigationToolbar2QT):
         self.anns = anns
         self.img_size = img_size
 
+        self.remove_actions(["Home", "Back", "Forward", "Pan", "Zoom", "Subplots", "Customize"])
+
         self.addWidget(QLabel("Selected label"))
         self.combo = QComboBox()
         self.combo.addItems(labels)
@@ -132,6 +134,11 @@ class CustomToolbar(NavigationToolbar2QT):
 
         btn.clicked.connect(open_bulk_label_changer)
         self.addWidget(btn)
+
+    def remove_actions(self, actions):
+        for action in self.actions():
+            if action.text() in actions or action.isSeparator():
+                self.removeAction(action)
 
     def save_figure(self, *args, **kwargs):
         file_path, _ = QFileDialog.getSaveFileName(None, "Save Labels", self.anns_file,"CSV (*.csv);;All Files (*)")
