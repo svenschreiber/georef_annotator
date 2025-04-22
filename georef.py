@@ -167,7 +167,7 @@ parser.add_argument("image_dir")
 parser.add_argument("label_names_file")
 args = parser.parse_args()
 image_dir = args.image_dir
-file_list = [os.path.join(image_dir, file) for file in os.listdir(image_dir) if file.endswith('.jpg')][:20]
+file_list = [os.path.join(image_dir, file) for file in os.listdir(image_dir) if file.endswith('.jpg')]
 images = load_images(file_list)
 label_names = load_labels(args.label_names_file)
 

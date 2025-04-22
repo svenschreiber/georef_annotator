@@ -41,6 +41,9 @@ class PointDialog(QDialog):
         self.should_delete = True
         self.accept()
 
+def sorted_items(d):
+    return sorted(d.items(), key=lambda f: int(''.join(filter(str.isdigit, f[0]))))
+
 class BulkLabelChangerDialog(QDialog):
     def __init__(self, labels, anns, num_images, parent=None):
         super().__init__(parent)
@@ -90,7 +93,7 @@ class BulkLabelChangerDialog(QDialog):
         if self.lineedit1.hasAcceptableInput() and self.lineedit2.hasAcceptableInput():
             frame1, frame2 = int(self.lineedit1.text()), int(self.lineedit2.text())
             if frame1 > frame2: frame1, frame2 = frame2, frame1
-            data = [points for i, (_, points) in enumerate(self.anns.items()) if i + 1 >= frame1 and i + 1 <= frame2]
+            data = [points for i, (_, points) in enumerate(sorted_items(self.anns)) if i + 1 >= frame1 and i + 1 <= frame2]
             data = [p for ps in data for p in ps if p.label == self.combo1.currentText()]
             for p in data:
                 p.label = self.combo2.currentText()
@@ -144,14 +147,16 @@ class CustomToolbar(NavigationToolbar2QT):
         file_path, _ = QFileDialog.getSaveFileName(None, "Save Labels", self.anns_file,"CSV (*.csv);;All Files (*)")
         if file_path:
             with open(file_path, "w") as f:
-                for img_file, points in self.anns.items():
+                for img_file, points in sorted_items(self.anns):
                     for p in points:
                         f.write(f"{p.label},{p.coords[0]},{p.coords[1]},{img_file},{self.img_size[0]},{self.img_size[1]}\n")
 
 class LabelViewer:
     def __init__(self, args):
         image_dir = args.image_dir
-        self.images = imread_collection(image_dir + "/*.jpg", conserve_memory=False)
+        file_list = [os.path.join(args.image_dir, file) for file in os.listdir(args.image_dir) if file.endswith('.jpg')]
+        file_list.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+        self.images = imread_collection(file_list, conserve_memory=False)
         img_height, img_width, _ = self.images[0].shape
         self.anns = load_annotations(args.annotations)
         self.label_names = load_labels(args.label_names_file)
