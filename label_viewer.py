@@ -195,8 +195,7 @@ class LabelViewer:
         cmap = matplotlib.colormaps['tab10']
         label_to_color = {label: cmap(i % cmap.N) for i, label in enumerate(self.label_names)}
         color_values = [label_to_color[label] for label in labels]
-
-        self.sc = self.ax.scatter(*zip(*coords), c=color_values, picker=True)
+        if len(coords) > 0: self.sc = self.ax.scatter(*zip(*coords), c=color_values, picker=True)
         self.fig.suptitle(f"{filename} ({self.current + 1}/{self.num_images})")
         self.fig.canvas.draw()
 
