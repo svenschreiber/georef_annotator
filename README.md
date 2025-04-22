@@ -35,6 +35,8 @@ Currently, if you are not satisfied with the annotations, the only way to undo t
 
 Using the default tools in the navigation bar (e.g. zooming) may break the program.
 
+Loading in ~500 images is very memory intensive currently, so make sure that's fine.
+
 ## Usage: label_viewer.py
 Start the tool by passing in the video image directory, the annotations .csv file, and the possible labels file.
 
