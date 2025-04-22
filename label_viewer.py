@@ -243,6 +243,7 @@ class LabelViewer:
         self.redraw()
 
     def button_press_callback(self, event):
+        if event.xdata is None or event.ydata is None: return
         if event.button == 1 and self.selected_point is None:
             x, y = int(event.xdata), int(event.ydata)
             label = self.toolbar.combo.currentText()
