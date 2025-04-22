@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import RectangleSelector
 matplotlib.use("qtagg")
 
-from PyQt6.QtWidgets import QComboBox, QVBoxLayout, QWidget, QFormLayout, QLabel, QPushButton
+from PyQt6.QtWidgets import QComboBox, QVBoxLayout, QWidget, QFormLayout, QLabel, QPushButton, QSizePolicy
 
 from skimage import io, color
 from skimage.metrics import structural_similarity as ssim
@@ -131,12 +131,6 @@ def draw_point(fig, x, y):
 def draw_last_point():
     draw_point(fig, last_pos[0], last_pos[1])
 
-def mouse_move(event):
-    if event.inaxes:
-        hline.set_ydata(event.ydata)
-        vline.set_xdata(event.xdata)
-        fig.canvas.draw_idle()
-
 class State:
     roi_coords = ()
     label_text = None
@@ -173,7 +167,7 @@ parser.add_argument("image_dir")
 parser.add_argument("label_names_file")
 args = parser.parse_args()
 image_dir = args.image_dir
-file_list = [os.path.join(image_dir, file) for file in os.listdir(image_dir) if file.endswith('.jpg')]
+file_list = [os.path.join(image_dir, file) for file in os.listdir(image_dir) if file.endswith('.jpg')][:20]
 images = load_images(file_list)
 label_names = load_labels(args.label_names_file)
 
@@ -196,6 +190,7 @@ while True:
     form_layout = QFormLayout()
     form_layout.addRow(QLabel("Label:"), combo)
     label_selector.setLayout(form_layout)
+    label_selector.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Maximum)
     layout.addWidget(manager.canvas)
     layout.addWidget(label_selector)
     central.setLayout(layout)
